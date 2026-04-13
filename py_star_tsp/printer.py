@@ -8,6 +8,7 @@ builders in ``commands.py``.
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from .exceptions import (
@@ -25,6 +26,8 @@ except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "pyusb is required. Install it with: pip install pyusb"
     ) from exc
+
+logger = logging.getLogger(__name__)
 
 # Star TSP100 USB vendor ID
 _STAR_VID = 0x0519
@@ -115,6 +118,7 @@ class StarTSP:
 
         if self._ep_out is None:
             raise PrinterCommunicationError("Bulk-OUT endpoint not found")
+        logger.info("Printer opened successfully")
 
     def close(self) -> None:
         """Release the USB interface and close the connection."""
@@ -123,6 +127,7 @@ class StarTSP:
             self._device = None
             self._ep_out = None
             self._ep_in = None
+            logger.info("Printer connection closed")
 
     def __enter__(self) -> "StarTSP":
         self.open()
@@ -249,3 +254,60 @@ class StarTSP:
     def reset(self) -> None:
         """Send the printer reset command."""
         self.send(cmd.reset_printer())
+        logger.info("Printer reset")
+
+    # ------------------------------------------------------------------
+    # Text rendering (ESC/POS-compatible convenience)
+    # ------------------------------------------------------------------
+
+    def print_text(
+        self,
+        text: str,
+        *,
+        font_name: Optional[str] = None,
+        font_size: int = 20,
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        width: int = 384,
+        border: bool = False,
+        border_thickness: int = 2,
+        box_fill: bool = False,
+        invert: bool = False,
+        line_spacing: int = 4,
+    ) -> None:
+        """Render *text* as a raster image and print it.
+
+        This provides an ESC/POS-like plain-text printing workflow:
+        pass a string and optional formatting flags; the library
+        renders the text to a bitmap and sends it to the printer
+        in raster graphics mode.
+
+        See :func:`py_star_tsp.text.render_text` for full parameter
+        documentation and :mod:`py_star_tsp.escpos_compat` for
+        compatibility notes.
+        """
+        from .text import render_text
+
+        logger.debug(
+            "print_text: rendering %d chars (bold=%s, italic=%s, underline=%s)",
+            len(text), bold, italic, underline,
+        )
+
+        img = render_text(
+            text,
+            font_name=font_name,
+            font_size=font_size,
+            bold=bold,
+            italic=italic,
+            underline=underline,
+            width=width,
+            border=border,
+            border_thickness=border_thickness,
+            box_fill=box_fill,
+            invert=invert,
+            line_spacing=line_spacing,
+        )
+        ri = RasterImage(img)
+        self.print_raster_image(ri)
+        logger.debug("print_text: done")

@@ -245,5 +245,63 @@ class TestPrintRasterImage(unittest.TestCase):
         self.assertIn(b"*rB", last)
 
 
+class TestPrintText(unittest.TestCase):
+    """Test StarTSP.print_text renders text and sends raster data."""
+
+    def test_print_text_sends_data(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow not installed")
+
+        from py_star_tsp.printer import StarTSP
+
+        printer = StarTSP()
+        printer._ep_out = MagicMock()
+        printer._ep_in = MagicMock()
+        printer._device = MagicMock()
+
+        printer.print_text("Hello")
+
+        calls = printer._ep_out.write.call_args_list
+        # At minimum: init, enter, data lines, ff, quit
+        self.assertGreaterEqual(len(calls), 5)
+
+        # First call should be raster_initialize
+        first = calls[0][0][0]
+        self.assertIn(b"*rR", first)
+
+        # Last call: quit raster mode
+        last = calls[-1][0][0]
+        self.assertIn(b"*rB", last)
+
+    def test_print_text_with_styles(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow not installed")
+
+        from py_star_tsp.printer import StarTSP
+
+        printer = StarTSP()
+        printer._ep_out = MagicMock()
+        printer._ep_in = MagicMock()
+        printer._device = MagicMock()
+
+        # Should not raise
+        printer.print_text(
+            "Styled",
+            bold=True,
+            italic=True,
+            underline=True,
+            border=True,
+            box_fill=True,
+            invert=True,
+        )
+
+        calls = printer._ep_out.write.call_args_list
+        self.assertGreaterEqual(len(calls), 5)
+
+
 if __name__ == "__main__":
     unittest.main()

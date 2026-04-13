@@ -3,6 +3,7 @@
 from .printer import StarTSP
 from .raster import RasterImage
 from .status import AsbStatus
+from .text import render_text, discover_fonts, find_font
 from .exceptions import (
     PrinterNotFoundError,
     PrinterCommunicationError,
@@ -13,6 +14,9 @@ __all__ = [
     "StarTSP",
     "RasterImage",
     "AsbStatus",
+    "render_text",
+    "discover_fonts",
+    "find_font",
     "PrinterNotFoundError",
     "PrinterCommunicationError",
     "PrinterCommandError",

@@ -1,4 +1,7 @@
-"""Custom exceptions for the py-star-tsp library."""
+"""Custom exceptions for the py-star-tsp library.
+
+TODO: Should exceptions have logging in them?
+"""
 
 
 class PrinterNotFoundError(Exception):

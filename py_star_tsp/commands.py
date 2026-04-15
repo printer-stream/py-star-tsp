@@ -4,6 +4,9 @@ Low-level byte-sequence command builders for the Star TSP100 Graphic Mode.
 All functions return ``bytes``.  Parameter values are validated against the
 ranges defined in STAR Graphic Mode Command Specifications Rev. 2.31, and
 ``PrinterCommandError`` is raised for out-of-range values.
+
+TODO: Review all commands
+TODO: Come up with a way to define usability for each printer model
 """
 
 from .exceptions import PrinterCommandError
@@ -425,7 +428,19 @@ def raster_vertical_move(n: int) -> bytes:
 
 
 def raster_execute_ff() -> bytes:
-    """ESC FF NUL — execute form feed."""
+    """ESC FF NUL — execute form feed.
+
+        Notes:
+            It runs the operation specified in FF mode setting 
+            command (ESC * r F n NUL).
+            If raster data exists in the image buffer for 
+            raster mode, FF mode is implemented after printing.
+            If raster data does not exist in the image buffer 
+            for raster mode, this command is ignored.
+            (TSP100IIU) if the print paper length to be cut
+            is less than 24mm, then empty feed is automatically added
+            before cutting so that the printing paper length is 24mm.    
+    """
     return ESC + FF + NUL
 
 

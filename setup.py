@@ -1,10 +1,11 @@
 from setuptools import setup, find_packages
+from py_star_tsp.version import __version__
 
 setup(
     name='py-star-tsp',
-    version='0.1.0',
+    version=__version__,
     packages=find_packages(),
-    install_requires=['pyusb>=1.2.1', 'Pillow>=9.0.0'],
+    install_requires=['pyusb>=1.3.0', 'Pillow>=12.0.0'],
     python_requires='>=3.8',
     description='Python SDK for Star TSP100 Graphic Mode thermal printers',
     long_description=open('README.md').read(),

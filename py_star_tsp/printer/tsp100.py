@@ -4,6 +4,8 @@ from typing import Optional
 
 from .printer import StarTSP
 
+logger = logging.getLogger("py_star_tsp")
+
 
 class StarTSP100(StarTSP):
     """
@@ -42,16 +44,14 @@ class StarTSP100(StarTSP):
         self.raster_dpi = 203
         self.raster_width = 576  # 576 pixels (80mm at 203 DPI)
 
-        self.logger = logging.getLogger("StarTSP100")
-
         super().__init__(vendor_id=self.vendor_id, product_id=self.product_id, timeout=self.timeout, *args, **kwargs)
 
     def __enter__(self) -> "StarTSP100":
-        self.logger.info("Opening printer connection")
+        logger.info("Opening printer connection")
         self.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.logger.info("Closing printer connection")
+        logger.info("Closing printer connection")
         self.close()
 

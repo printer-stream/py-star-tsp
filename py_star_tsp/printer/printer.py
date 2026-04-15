@@ -1,8 +1,7 @@
 """
 StarTSP — high-level USB printer class.
 
-Todo:
-    * Multiple loggers to levels of events, and make logleveling more flexible
+TODO: Multiple loggers to levels of events, and make logleveling more flexible
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ except ImportError as exc:  # pragma: no cover
         "pyusb is required. Install it with: pip install pyusb"
     ) from exc
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("py_star_tsp")
 
 # Star TSP USB vendor ID
 _STAR_VID = 0x0519
@@ -68,12 +67,19 @@ class StarTSP:
 
         self.cut = True
 
-        self.print_speed = 2         # n=0: high speed
-                                     # n=1: mid-speed
-                                     # n=2: slow speed
-        self.raster_quality = 1      # n=0: high-speed printing specified (default)
-                                     # n=1: normal print quality
-                                     # n=2: high print quality
+        self.print_speed = 2           # n=0: high speed
+                                       # n=1: mid-speed
+                                       # n=2: slow speed
+        self.raster_print_quality = 1  # n=0: high-speed printing specified (default)
+                                       # n=1: normal print quality
+                                       # n=2: high print quality
+        self.print_density = 2         # n=0: density +3 (darkest)
+                                       # n=1: density +2
+                                       # n=2: density +1
+                                       # n=3: density standard (default)
+                                       # n=4: density -1
+                                       # n=5: density -2
+                                       # n=6: density -3 (lightest)
         self.set = RasterSet()
 
     @property
@@ -111,10 +117,9 @@ class StarTSP:
     def open(self) -> None:
         """Open the USB connection to the printer.
         
-            Todo:
-                * Why detaching kernel driver?
-                * How would it work on Windows and OS X?
-                * Finding descriptors and endpoints: is this robust across different OSes and printer models?
+        TODO: Why detaching kernel driver?
+        TODO: How would it work on Windows and OS X?
+        TODO: Finding descriptors and endpoints: is this robust across different OSes and printer models?
 
         """
         logger.debug("Opening printer connection")
@@ -217,63 +222,6 @@ class StarTSP:
             logger.exception(f"USB read failed: {exc}")
             raise PrinterCommunicationError(f"USB read failed: {exc}") from exc
 
-    _STATUS_DRAIN_MAX = 64
-
-    def flush_input(self) -> None:
-        """Drain pending data from the USB bulk-IN endpoint.
-
-        The printer continuously pushes unsolicited ASB status
-        notifications.  This method performs up to
-        ``_STATUS_DRAIN_MAX`` short reads to clear whatever is
-        already queued in the host-side USB buffer without chasing
-        the live stream forever.
-
-        Each flushed chunk is logged at INFO level with a hex dump and,
-        if it looks like a valid standard status, a parsed summary.
-        """
-        if self._ep_in is None:
-            return
-
-        flushed_count = 0
-        for _ in range(self._STATUS_DRAIN_MAX):
-            try:
-                stale = bytes(self._ep_in.read(64, timeout=100))
-                flushed_count += 1
-                description = self._describe_flushed(stale)
-
-                logger.info(
-                    "Flushed packet #%d (%d bytes): %s — %s",
-                    flushed_count, len(stale), stale.hex(), description,
-                )
-
-            except usb.core.USBError:
-                break
-
-        if flushed_count:
-            logger.info("Flushed %d stale packet(s) from IN buffer", flushed_count)
-
-    @staticmethod
-    def _describe_flushed(data: bytes) -> str:
-        """Try to interpret a flushed IN-buffer chunk."""
-        if len(data) < 2:
-            return f"unknown ({len(data)} byte(s))"
-
-        header1 = data[0]
-        expected_len = _HEADER1_TO_LEN.get(header1)
-
-        if expected_len is not None and len(data) >= expected_len:
-            try:
-                status = AsbStatus(data[:expected_len])
-                return f"unsolicited ASB status: {status!r}"
-            except ValueError:
-                pass
-
-        return f"unrecognised data (header1=0x{header1:02x})"
-
-    # ------------------------------------------------------------------
-    # High-level convenience methods
-    # ------------------------------------------------------------------
-
     def initialize_raster(self) -> None:
         """Send the raster-mode initialisation command."""
         self.send(commands.raster_initialize())
@@ -281,7 +229,6 @@ class StarTSP:
     def enter_raster_mode(self) -> None:
         """Enter raster graphics mode."""
         self.send(commands.raster_enter())
-        self.send(commands.raster_set_print_quality(self.raster_quality))
 
     def quit_raster_mode(self) -> None:
         """Quit raster graphics mode."""
@@ -290,11 +237,45 @@ class StarTSP:
     def reset(self) -> None:
         """Send the printer reset command."""
         self.send(commands.reset_printer())
-        logger.info("Printer reset")
+        logger.debug("Printer has been reset")
 
     def drive_drawer(self) -> None:
         """Pulse the cash-drawer port (external device 1)."""
         self.send(commands.drive_external_device_1_bel())
+        logger.debug("Cash drawer pulsed")
+        
+    def set_raster_ff_mode(self, mode: int) -> None:
+        """Set the raster FF mode (form feed behavior).
+
+        Args:
+            mode (int): The FF mode to set.
+        """
+        self.send(commands.raster_set_ff_mode(mode))
+        logger.debug(f"Raster FF mode set to {mode}")
+
+    def set_raster_print_quality(self, n: int) -> None:
+        """Set the print quality.
+
+            n=0: high-speed printing specified (default)
+            n=1: normal print quality
+            n=2: high print quality
+        """
+        if n < 0 or n > 2:
+            raise ValueError(f"Invalid quality value {n}; must be between 0 and 2")
+
+        self.send(commands.raster_set_print_quality(n))
+
+    def set_raster_page_length(self, length_dots: int) -> None:
+        """Set the page length in dots.
+
+        Args:
+            length_dots (int): The page length in dots. Minimum is 200 dots per spec.
+        """
+        if length_dots < 200:
+            logger.warning(f"Requested page length {length_dots} is less than minimum 200; it may be ignored by the printer")
+        
+        self.send(commands.raster_set_page_length(length_dots))
+        logger.debug(f"Raster page length set to {length_dots} dots")
 
     def set_density(self, n: int) -> None:
         """Set the print density.        
@@ -307,14 +288,20 @@ class StarTSP:
             n=5: density -2
             n=6: density -3 (lightest)
         """
+        if n < 0 or n > 6:
+            raise ValueError(f"Invalid density value {n}; must be between 0 and 6")
+
         self.send(commands.set_print_density(n))
 
-    def set_speed(self, n: int) -> None:
+    def set_print_speed(self, n: int) -> None:
         """Set the print speed.
             n=0: high speed
             n=1: mid-speed
             n=2: slow speed
         """
+        if n < 0 or n > 2:
+            raise ValueError(f"Invalid speed value {n}; must be between 0 and 2")
+
         self.send(commands.set_print_speed(n))
 
     def set_led_blink(self, led_id: int = 1, on_time: int=100, off_time: int=50) -> None:
@@ -324,7 +311,12 @@ class StarTSP:
     def led_blink(self) -> None:
         """Blink the printer's LED (for testing)."""
         self.send(commands.led_blink(m=1, n1=10, n2=0))
-        logger.info("Blinking printer LED")
+        logger.debug("Blinking printer LED")
+
+    def raster_ff(self) -> None:
+        """Send a form feed in raster mode."""
+        self.send(commands.raster_execute_ff())
+        logger.debug("Executed raster form feed")
 
     def get_status(self) -> AsbStatus:
         """Request and parse the standard printer status.
@@ -335,69 +327,71 @@ class StarTSP:
         last successful read before the timeout is the most recent
         printer state.
 
-        Returns
-        -------
-        AsbStatus
-            Parsed status object reflecting the latest printer state.
+        Returns:
+            AsbStatus: Parsed status object reflecting the latest printer state.
+            
+        TODO: Allegedly, the printer may send unsolicited ASB status packets continuously
+        TODO: Flushing used to help, but what about having a thread that reads the usb input
+        TODO: How the input buffer works in this case?
         """
         self.send(commands.get_asb_status())
 
-        latest: bytes | None = None
-        stale_count = 0
+        raw: bytes | None = None
 
-        for _ in range(self._STATUS_DRAIN_MAX):
-            try:
-                raw = bytes(self._ep_in.read(64, timeout=200))
-            except usb.core.USBError:
-                break
+        try:
+            raw = bytes(self._ep_in.read(64, timeout=200))
+        except usb.core.USBError:
+            logger.warning("No status response received within timeout")
 
-            if latest is not None:
-                stale_count += 1
-                description = self._describe_flushed(latest)
-                logger.debug(
-                    "Skipped stale packet #%d (%d bytes): %s — %s",
-                    stale_count, len(latest), latest.hex(), description,
-                )
-            latest = raw
+        if raw is None:
+            raise PrinterCommunicationError("No status response received from printer")
 
-        if latest is None:
-            raise PrinterCommunicationError(
-                "No status response received from printer"
-            )
-
-        if stale_count:
-            logger.info("Drained %d stale packet(s) before latest status", stale_count)
-
-        logger.debug("ASB raw response (%d bytes): %s", len(latest), latest.hex())
-        status = AsbStatus(latest)
+        logger.debug("ASB raw response (%d bytes): %s", len(raw), raw.hex())
+        status = AsbStatus(raw)
         logger.info(f"Printer ASB status: {status}")
         return status
 
+    def print_raster_line(self, n1: int, n2: int, line_data: bytes) -> None:
+        """Send a single raster line to the printer.
+
+        Args:
+            n1 (int): The low byte of the raster line width in bytes.
+            n2 (int): The high byte of the raster line width in bytes.
+            line_data (bytes): The raster line data, where each bit represents a pixel (1=black, 0=white).
+        """
+        self.send(commands.raster_transfer_auto_lf(n1, n2, line_data))
 
     def print(self) -> None:
         """Send a full raster print sequence.
 
         The sequence is:
-        1. Initialise raster mode.
-        2. Enter raster mode.
-        3. Set page length to match the image height.
-        4. Transfer each raster line using ``raster_transfer_auto_lf``.
-        5. Execute a form-feed to trigger printing.
-        6. Quit raster mode.
+            1. Initialise raster mode.
+            2. Enter raster mode.
+            3. Set page length to match the image height.
+            4. Transfer each raster line using ``raster_transfer_auto_lf``.
+            5. Execute a form-feed to trigger printing.
+            6. Quit raster mode.
+        
+        Notes:
+            * We're assuming auto LF is the only correct way to go.
+
+        TODO: Try-except with exiting raster mode etc.
+        TODO: Defining n1 and n2 per element in the RasterSet. Currently we ensure all blocks are exactly correct width (or do we?).
         """
         logger.info("Preparing to print raster image")
 
-        self.send(commands.raster_initialize())
+        self.initialize_raster()
         self.enter_raster_mode()
-
-        self.send(commands.raster_set_print_quality(self.raster_quality))
-        self.send(commands.raster_set_ff_mode(self.raster_ff_mode))
-        self.send(commands.set_print_speed(self.print_speed))
+        
+        self.set_density(self.print_density)
+        self.set_raster_print_quality(self.raster_print_quality)
+        self.set_raster_ff_mode(self.raster_ff_mode)
+        self.set_print_speed(self.print_speed)
 
         # Set page length to image height (min 200 dots per spec)
         page_len = max(self.set.total_height, 200)
-        logger.info(f"Setting page length to {page_len} dots for image height {self.set.total_height} (200 min)")
-        self.send(commands.raster_set_page_length(page_len))
+        logger.info(f"Setting page length to {page_len} dots for image height {self.set.total_height}")
+        self.set_raster_page_length(page_len)
 
         # Each pixel is 1 bit. To convert pixel width to byte width,
         # divide by 8 — but round up so partial bytes are included.
@@ -411,15 +405,17 @@ class StarTSP:
         n2 = (bytes_per_row >> 8) & 0xFF
 
         for line in self.set.raster_lines:
-            self.send(commands.raster_transfer_auto_lf(n1, n2, line))
+            self.print_raster_line(n1, n2, line)
 
-        self.send(commands.raster_execute_ff())
+        self.raster_ff()
         self.quit_raster_mode()
 
 
-    def add_image(self, filename: str, scale_down=True, invert=False) -> None:
+    def add_image(self, filename: str, invert=False) -> None:
         """
         Add an image to the print queue and print it.
+        
+        TODO: Shrinking is inevitable, but should we have other options?
         """
         logger.info("Preparing to add an image")
 
@@ -464,10 +460,7 @@ class StarTSP:
         compatibility notes.
         """
 
-        logger.debug(
-            "print_text: rendering %d chars (bold=%s, italic=%s, underline=%s)",
-            len(text), bold, italic, underline,
-        )
+        logger.debug(f"print_text: rendering {len(text)} chars: '{text}'")
 
         text_block = TextBlock(
             text,
@@ -484,7 +477,10 @@ class StarTSP:
 
 
     def add_bar(self, width: int, height: int, margin_left: int = 0, margin_right: int = 0) -> None:
-        """Add a solid black bar of the specified dimensions to the print queue."""
+        """Add a solid black bar of the specified dimensions to the print queue.
+        
+        TODO: That margin_right workaround must be cleaned up. 
+        """
         logger.info(f"Adding a bar: width={width}, height={height}, margin_left={margin_left}, margin_right={margin_right}")
 
         if width+margin_left > self.raster_width:

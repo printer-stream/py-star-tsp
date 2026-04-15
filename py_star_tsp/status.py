@@ -11,6 +11,8 @@ version.  The Printer Status bytes carry the actual flags.
 
 Bit layouts follow Appendix-1 of the STAR Graphic Mode Command
 Specifications Rev. 2.31.
+
+TODO: This is not reviewed at all.
 """
 
 from __future__ import annotations

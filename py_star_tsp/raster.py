@@ -1,6 +1,6 @@
 """
 RasterImage — converts a PIL Image to 1-bit raster lines suitable for
-sending to a Star TSP100 printer in Graphic Mode.
+sending to a Star printer in Graphic Mode.
 """
 
 from __future__ import annotations
@@ -20,9 +20,17 @@ except ImportError as exc:  # pragma: no cover
 logger = logging.getLogger("py_star_tsp")
 
 class RasterSet:
-    """A set of raster lines, with associated metadata.
+    """A set of raster blocks, with associated metadata.
 
-    This is the data structure passed to the printer's ``print_raster_image()`` method.
+    That's what Printer holds internally as it builds up the print "queue".
+    The blocks from the RasterSet are then supposed to be converted to raster lines
+    and sent to the printer.
+    
+    TODO: Variable block width breaks the printer's line-by-line processing.
+          At this point we just make sure all widths are "correct", 
+          meaning they don't break the printing. The way of passing down the lines
+          must be redesigned.
+
     """
 
     def __init__(self, blocks=None) -> None:
@@ -61,11 +69,10 @@ class RasterSet:
 class RasterImage:
     """Wrap a PIL Image and expose it as packed 1-bit raster lines.
 
-    Parameters
-    ----------
-    image:
-        A PIL ``Image`` object.  Any mode is accepted; the image is
-        converted to ``'1'`` (1-bit black-and-white) internally.
+    Args:
+        image (Image.Image): A PIL ``Image`` object.  Any mode is accepted; the image is
+               converted to ``'1'`` (1-bit black-and-white) internally.
+    
     """
 
     def __init__(self, image: "Image.Image") -> None:
@@ -110,10 +117,6 @@ class RasterImage:
             new_height = int(self.height * (max_width / self.width))
             self._image.thumbnail((max_width, new_height), Image.Resampling.LANCZOS)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def to_raster_lines(self) -> List[bytes]:
         """Return a list of packed raster lines, one ``bytes`` per row.
 
@@ -151,7 +154,8 @@ class SolidBar(RasterImage):
             height (int): Height of the black bar in pixels.
             margin_left (int, optional): Left margin in pixels. Defaults to 0.
             margin_right (int, optional): Right margin in pixels. Defaults to 0.
-            
+        
+        Notes:
             margin_right is a workaround for the fact that the printer 
             may ignore trailing bits of the last byte in a row if 
             the total width is not a multiple of 8. By adding margin pixels 

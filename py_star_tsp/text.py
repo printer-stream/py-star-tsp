@@ -36,6 +36,8 @@ dithering by default.  You may also apply ordered (Bayer) dithering or
 other halftone algorithms before passing the image to
 :class:`~py_star_tsp.raster.RasterImage`.  Results vary with print
 density and paper quality; experimentation is recommended.
+
+TODO: Docstring is not reviewed at all.
 """
 
 from __future__ import annotations
@@ -55,7 +57,8 @@ except ImportError as exc:  # pragma: no cover
 
 from py_star_tsp.raster import RasterImage
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("py_star_tsp")
+
 
 # ── Default printer width ──────────────────────────────────────────────
 DEFAULT_WIDTH = 576
@@ -137,21 +140,15 @@ def discover_fonts() -> Dict[str, str]:
     return fonts
 
 
-def find_font(
-    name: Optional[str] = None,
-    bold: bool = False,
-    italic: bool = False,
-) -> Optional[str]:
+def find_font(name: Optional[str] = None, bold: bool = False, italic: bool = False) -> Optional[str]:
     """Locate a TrueType/OpenType font file by *name*.
 
     If *name* is ``None`` the fallback list is tried in order.  When
     *bold* or *italic* are requested the function first looks for
     variant-specific stems (e.g. ``DejaVuSansMono-Bold``).
 
-    Returns
-    -------
-    str or None
-        Full path to the font file, or ``None`` if nothing was found.
+    Returns: 
+        str or None: Full path to the font file, or ``None`` if nothing was found.
     """
     # If no specific name requested, try the bundled font first
     if name is None:
@@ -218,7 +215,28 @@ def _load_font(
 
 
 class TextBlock:
-    """Render a block of text as a raster image, with styling options."""
+    """Render a block of text as a raster image, with styling options.
+
+    Args:
+        text: The text string to render.  Multi-line strings are supported.
+        font_name: Font name (stem) to search for.  ``None`` tries the fallback list.
+        font_size: Font size in pixels (ignored when the built-in bitmap font is used).
+        bold: Request a bold variant.
+        italic: Request an italic variant.
+        underline: Draw an underline beneath each line of text.
+        width: Image width in pixels.
+        border: Draw a rectangular border around the text area.
+        border_thickness: Border line width in pixels.
+        box_fill: Fill the background of the text area.  When combined with
+            *invert* this produces white text on a black background.
+        invert: Swap foreground/background colours (white-on-black).
+        line_spacing: Extra vertical pixels between lines of text.
+
+    TODO: Bold/Italic/underline support is non existent
+    TODO: Alignment is not supported
+    TODO: The text is multilined, and line_spacing is actually interval?
+    
+    """
     def __init__(self,
         text: str,
         *,
@@ -233,7 +251,6 @@ class TextBlock:
 
         border: bool = False,
         border_thickness: int = 2,
-        box_fill: bool = False,
 
         invert: bool = False,
         line_spacing: int = 4,
@@ -249,52 +266,18 @@ class TextBlock:
 
         self.border = border
         self.border_thickness = border_thickness
-        self.box_fill = box_fill
         self.invert = invert
         self.line_spacing = line_spacing
 
         self.text_colour = 0 if not self.invert else 255
         self.bg_colour = 255 if not self.invert else 0
 
-        logging.debug(f"TextBlock width={width}")
+        logger.debug(f"TextBlock width={width}")
 
         pass
 
     def render(self) -> RasterImage:
         """Render *text* to a 1-bit ``PIL.Image`` suitable for raster printing.
-
-        Parameters
-        ----------
-        text:
-            The text string to render.  Multi-line strings are supported.
-        font_name:
-            Font name (stem) to search for.  ``None`` tries the fallback list.
-        font_size:
-            Font size in pixels (ignored when the built-in bitmap font is used).
-        bold:
-            Request a bold variant.
-        italic:
-            Request an italic variant.
-        underline:
-            Draw an underline beneath each line of text.
-        width:
-            Image width in pixels.
-        border:
-            Draw a rectangular border around the text area.
-        border_thickness:
-            Border line width in pixels.
-        box_fill:
-            Fill the background of the text area.  When combined with
-            *invert* this produces white text on a black background.
-        invert:
-            Swap foreground/background colours (white-on-black).
-        line_spacing:
-            Extra vertical pixels between lines of text.
-
-        Returns
-        -------
-        PIL.Image.Image
-            A mode-``"1"`` (1-bit) image ready for :class:`~py_star_tsp.raster.RasterImage`.
         """
         font_path = find_font(self.font_name, bold=self.bold, italic=self.italic)
         font = _load_font(font_path, self.font_size)
@@ -325,7 +308,7 @@ class TextBlock:
         img = Image.new("L", (self.width, img_height), color=self.bg_colour)
         draw = ImageDraw.Draw(img)
 
-        # ── Draw text ─────────────────────────────────────────────────
+        # TODO: This compensation bit I don't really understand:
         # Compensate for font ascent so first line sits at pad
         # origin_bbox = draw.multiline_textbbox((0, 0), self.text, font=font, spacing=self.line_spacing)
         y_origin = text_padding - bbox_top

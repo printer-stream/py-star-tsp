@@ -1,9 +1,9 @@
 """py_star_tsp — Python SDK for Star TSP100 Graphic Mode thermal printers."""
 
-from .printer import StarTSP
+from .printer.printer import StarTSP
 from .raster import RasterImage
 from .status import AsbStatus
-from .text import render_text, discover_fonts, find_font
+from .text import discover_fonts, find_font, TextBlock
 from .exceptions import (
     PrinterNotFoundError,
     PrinterCommunicationError,
@@ -14,7 +14,7 @@ __all__ = [
     "StarTSP",
     "RasterImage",
     "AsbStatus",
-    "render_text",
+    "TextBlock",
     "discover_fonts",
     "find_font",
     "PrinterNotFoundError",

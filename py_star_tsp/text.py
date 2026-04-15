@@ -1,5 +1,5 @@
 """
-Text rendering for Star TSP100 thermal printers.
+Text rendering for Star thermal printers.
 
 Renders text as raster images using Pillow and system fonts.
 Supports font discovery, style options (bold, italic, underline),
@@ -53,10 +53,15 @@ except ImportError as exc:  # pragma: no cover
         "Pillow is required for text rendering. Install it with: pip install Pillow"
     ) from exc
 
+from py_star_tsp.raster import RasterImage
+
 logger = logging.getLogger(__name__)
 
 # ── Default printer width ──────────────────────────────────────────────
-DEFAULT_WIDTH = 384  # TSP100 print width at 203 dpi
+DEFAULT_WIDTH = 576
+
+# ── Bundled default font ──────────────────────────────────────────────
+BUNDLED_FONT_PATH = str(Path(__file__).parent / "fonts" / "orator_15cpi.otf")
 
 # ── Fallback font names (in priority order) ───────────────────────────
 FALLBACK_FONT_NAMES: List[str] = [
@@ -95,10 +100,15 @@ def _font_search_dirs() -> List[str]:
     """Return a list of directories to search for fonts on this OS."""
     system = platform.system()
     dirs = list(_FONT_DIRS.get(system, []))
+    logger.debug(f"_font_search_dirs: OS={system}, dirs={dirs}")
+
     # Also include any directories from the FONTPATH environment variable
     extra = os.environ.get("FONTPATH", "")
     if extra:
         dirs.extend(extra.split(os.pathsep))
+        logger.debug(f"_font_search_dirs: added FONTPATH dirs={extra}")
+
+    logger.debug(f"Final set of font search dirs: OS={system}, dirs={dirs}")
     return dirs
 
 
@@ -114,14 +124,16 @@ def discover_fonts() -> Dict[str, str]:
         ``{stem: path}`` for every ``.ttf`` / ``.otf`` file found.
     """
     fonts: Dict[str, str] = {}
-    for d in _font_search_dirs():
-        dp = Path(d)
-        if not dp.is_dir():
+    for potential_font_dir in _font_search_dirs():
+        potential_font_dir_path = Path(potential_font_dir)
+        if not potential_font_dir_path.is_dir():
             continue
-        for p in dp.rglob("*"):
-            if p.suffix.lower() in (".ttf", ".otf") and p.is_file():
-                fonts[p.stem] = str(p)
-    logger.debug("discover_fonts: found %d fonts", len(fonts))
+        for potential_font_filename in potential_font_dir_path.rglob("*"):
+            if potential_font_filename.suffix.lower() in (".ttf", ".otf") and potential_font_filename.is_file():
+                fonts[potential_font_filename.stem] = str(potential_font_filename)
+                logger.debug(f"discover_fonts: found font {potential_font_filename.stem} at {potential_font_filename}")
+
+    logger.debug(f"discover_fonts: found {len(fonts)} fonts")
     return fonts
 
 
@@ -141,9 +153,17 @@ def find_font(
     str or None
         Full path to the font file, or ``None`` if nothing was found.
     """
+    # If no specific name requested, try the bundled font first
+    if name is None:
+        if Path(BUNDLED_FONT_PATH).is_file():
+            logger.debug(f"find_font: using bundled font {BUNDLED_FONT_PATH}")
+            return BUNDLED_FONT_PATH
+        else:
+            logger.warning(f"Bundled font not found at {BUNDLED_FONT_PATH}; falling back to system fonts")
+
     available = discover_fonts()
     if not available:
-        logger.warning("No system fonts found; falling back to Pillow default")
+        logger.error("No system fonts found; falling back to Pillow default")
         return None
 
     # Build a list of candidate names
@@ -151,8 +171,11 @@ def find_font(
     names_to_try = [name] if name else list(FALLBACK_FONT_NAMES)
 
     for base in names_to_try:
+
         # Normalise: remove spaces for stem matching
         base_ns = base.replace(" ", "")
+        logger.debug(f"find_font: trying base name {base!r} (normalized {base_ns!r})")
+
         suffixes: List[str] = []
         if bold and italic:
             suffixes = ["-BoldItalic", "-BoldOblique", "-Bold-Italic"]
@@ -160,7 +183,9 @@ def find_font(
             suffixes = ["-Bold"]
         elif italic:
             suffixes = ["-Italic", "-Oblique"]
+
         suffixes.append("")  # plain variant as final fallback
+        logger.debug(f"find_font: generated suffixes {suffixes} for base {base!r}")
 
         for sfx in suffixes:
             candidates.append(base_ns + sfx)
@@ -168,12 +193,13 @@ def find_font(
 
     for c in candidates:
         if c in available:
-            logger.debug("find_font: matched %r → %s", c, available[c])
+            logger.debug(f"find_font: matched {c!r} → {available[c]}")
             return available[c]
 
     # Last resort: return the first available font
     first = next(iter(available.values()))
-    logger.info("find_font: no exact match; using first available: %s", first)
+    logger.info(f"find_font: no exact match; using first available: {first}")
+
     return first
 
 
@@ -186,127 +212,137 @@ def _load_font(
         try:
             return ImageFont.truetype(font_path, size)
         except (OSError, IOError):
-            logger.warning("Failed to load font %s; using default", font_path)
-    logger.info("Using Pillow built-in bitmap font (no sizing/style support)")
+            logger.warning(f"Failed to load font {font_path}; using default")
+    logger.warning("Using Pillow built-in bitmap font (no sizing/style support)")
     return ImageFont.load_default()
 
 
-def render_text(
-    text: str,
-    *,
-    font_name: Optional[str] = None,
-    font_size: int = 20,
-    bold: bool = False,
-    italic: bool = False,
-    underline: bool = False,
-    width: int = DEFAULT_WIDTH,
-    border: bool = False,
-    border_thickness: int = 2,
-    box_fill: bool = False,
-    invert: bool = False,
-    line_spacing: int = 4,
-) -> Image.Image:
-    """Render *text* to a 1-bit ``PIL.Image`` suitable for raster printing.
+class TextBlock:
+    """Render a block of text as a raster image, with styling options."""
+    def __init__(self,
+        text: str,
+        *,
+        font_name: Optional[str] = None,
+        font_size: int = 20,
 
-    Parameters
-    ----------
-    text:
-        The text string to render.  Multi-line strings are supported.
-    font_name:
-        Font name (stem) to search for.  ``None`` tries the fallback list.
-    font_size:
-        Font size in pixels (ignored when the built-in bitmap font is used).
-    bold:
-        Request a bold variant.
-    italic:
-        Request an italic variant.
-    underline:
-        Draw an underline beneath each line of text.
-    width:
-        Image width in pixels (default 384 for TSP100).
-    border:
-        Draw a rectangular border around the text area.
-    border_thickness:
-        Border line width in pixels.
-    box_fill:
-        Fill the background of the text area.  When combined with
-        *invert* this produces white text on a black background.
-    invert:
-        Swap foreground/background colours (white-on-black).
-    line_spacing:
-        Extra vertical pixels between lines of text.
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
 
-    Returns
-    -------
-    PIL.Image.Image
-        A mode-``"1"`` (1-bit) image ready for :class:`~py_star_tsp.raster.RasterImage`.
-    """
-    font_path = find_font(font_name, bold=bold, italic=italic)
-    font = _load_font(font_path, font_size)
+        width: int = DEFAULT_WIDTH,
 
-    fg = 0 if not invert else 255  # foreground (text)
-    bg = 255 if not invert else 0  # background
+        border: bool = False,
+        border_thickness: int = 2,
+        box_fill: bool = False,
 
-    # ── Measure text ──────────────────────────────────────────────
-    lines = text.split("\n")
-    # Use a scratch image to measure
-    scratch = Image.new("L", (1, 1))
-    draw = ImageDraw.Draw(scratch)
+        invert: bool = False,
+        line_spacing: int = 4,
+) -> None:
+        self.text = text
+        self.font_name = font_name
+        self.font_size = font_size
+        self.bold = bold
+        self.italic = italic
+        self.underline = underline
 
-    line_heights: List[int] = []
-    line_widths: List[int] = []
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        lw = bbox[2] - bbox[0]
-        lh = bbox[3] - bbox[1]
-        line_widths.append(lw)
-        line_heights.append(lh)
+        self.width = width
 
-    total_height = sum(line_heights) + line_spacing * max(len(lines) - 1, 0)
+        self.border = border
+        self.border_thickness = border_thickness
+        self.box_fill = box_fill
+        self.invert = invert
+        self.line_spacing = line_spacing
 
-    # Add padding for border
-    pad = (border_thickness + 2) if border else 2
-    img_height = total_height + 2 * pad
+        self.text_colour = 0 if not self.invert else 255
+        self.bg_colour = 255 if not self.invert else 0
 
-    # ── Create image ──────────────────────────────────────────────
-    img = Image.new("L", (width, img_height), color=bg)
-    draw = ImageDraw.Draw(img)
+        logging.debug(f"TextBlock width={width}")
 
-    if box_fill:
-        draw.rectangle([0, 0, width - 1, img_height - 1], fill=(255 - bg))
+        pass
 
-    # Determine text fill colour on top of box_fill
-    text_fill = fg
-    if box_fill:
-        text_fill = bg  # text is opposite of the fill
+    def render(self) -> RasterImage:
+        """Render *text* to a 1-bit ``PIL.Image`` suitable for raster printing.
 
-    # ── Draw text ─────────────────────────────────────────────────
-    y_cursor = pad
-    for i, line in enumerate(lines):
-        x = pad
-        # Compute baseline offset from textbbox
-        bbox = draw.textbbox((0, 0), line, font=font)
-        y_offset = -bbox[1]  # compensate for font ascent
-        draw.text((x, y_cursor + y_offset), line, fill=text_fill, font=font)
+        Parameters
+        ----------
+        text:
+            The text string to render.  Multi-line strings are supported.
+        font_name:
+            Font name (stem) to search for.  ``None`` tries the fallback list.
+        font_size:
+            Font size in pixels (ignored when the built-in bitmap font is used).
+        bold:
+            Request a bold variant.
+        italic:
+            Request an italic variant.
+        underline:
+            Draw an underline beneath each line of text.
+        width:
+            Image width in pixels.
+        border:
+            Draw a rectangular border around the text area.
+        border_thickness:
+            Border line width in pixels.
+        box_fill:
+            Fill the background of the text area.  When combined with
+            *invert* this produces white text on a black background.
+        invert:
+            Swap foreground/background colours (white-on-black).
+        line_spacing:
+            Extra vertical pixels between lines of text.
 
-        if underline and line_heights[i] > 0:
-            ul_y = y_cursor + y_offset + line_heights[i] + 1
-            draw.line(
-                [(x, ul_y), (x + line_widths[i], ul_y)],
-                fill=text_fill,
-                width=max(1, font_size // 12),
-            )
+        Returns
+        -------
+        PIL.Image.Image
+            A mode-``"1"`` (1-bit) image ready for :class:`~py_star_tsp.raster.RasterImage`.
+        """
+        font_path = find_font(self.font_name, bold=self.bold, italic=self.italic)
+        font = _load_font(font_path, self.font_size)
+        logger.info(f"TextBlock.render: using font {font_path!r}")
 
-        y_cursor += line_heights[i] + line_spacing
+        text_padding = 0
 
-    # ── Border ────────────────────────────────────────────────────
-    if border:
-        border_fill = fg if not box_fill else text_fill
-        for t in range(border_thickness):
-            draw.rectangle(
-                [t, t, width - 1 - t, img_height - 1 - t],
-                outline=border_fill,
-            )
+        if self.border:
+            text_padding += self.border_thickness + 2  # border + gap
+            logger.info(f"TextBlock.render: border enabled thickness={self.border_thickness} text_padding={text_padding}")
 
-    # ── Convert to 1-bit ──────────────────────────────────────────
-    return img.convert("1")
+        scratch = Image.new("L", (1, 1))
+        draw = ImageDraw.Draw(scratch)
+
+        bbox_left, bbox_top, bbox_right, bbox_bottom = draw.multiline_textbbox(
+            (0, 0), self.text, font=font, spacing=self.line_spacing,
+        )
+        text_width = bbox_right - bbox_left
+        text_height = bbox_bottom - bbox_top
+        logger.info(f"TextBlock.render: multiline bbox {(bbox_left, bbox_top, bbox_right, bbox_bottom)} => {text_width}×{text_height}")
+
+        if text_width > self.width - 2 * text_padding:
+            logger.warning(f"TextBlock.render: text width {text_width} exceeds image width {self.width}")
+
+        img_height = text_height + 2 * text_padding
+
+        # ── Create image ──────────────────────────────────────────────
+        img = Image.new("L", (self.width, img_height), color=self.bg_colour)
+        draw = ImageDraw.Draw(img)
+
+        # ── Draw text ─────────────────────────────────────────────────
+        # Compensate for font ascent so first line sits at pad
+        # origin_bbox = draw.multiline_textbbox((0, 0), self.text, font=font, spacing=self.line_spacing)
+        y_origin = text_padding - bbox_top
+
+        draw.multiline_text(
+            (text_padding, y_origin), self.text,
+            fill=self.text_colour, font=font, spacing=self.line_spacing,
+        )
+
+        if self.border:
+            logger.info(f"TextBlock.render: drawing border with thickness {self.border_thickness}")
+            for t in range(self.border_thickness):
+                logger.info(f"TextBlock.render: drawing border iteration {t}")
+                draw.rectangle(
+                    [t, t, self.width - 1 - t, img_height - 1 - t],
+                    outline=self.text_colour,
+                )
+
+        return RasterImage(img)
+

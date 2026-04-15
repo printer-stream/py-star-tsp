@@ -388,3 +388,8 @@ Command Specifications Rev. 2.31**.  Notes:
 ## Specification Reference
 
 Commands are implemented from the **STAR Graphic Mode Command Specifications Rev. 2.31** (`star_graphic_cm_en.pdf`).
+
+## Licensing
+
+* Kitten in the demos by Deni Sudibyo
+

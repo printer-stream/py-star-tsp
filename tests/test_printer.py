@@ -196,7 +196,10 @@ class TestStarTSPHighLevel(unittest.TestCase):
 
     def test_get_status(self):
         printer = self._get_open_printer()
-        printer._ep_in.read.return_value = bytearray(b"\x00\x00\x00\x00")
+        # 9-byte standard status: Header1=0x23, Header2=0x06, 7 PS bytes
+        printer._ep_in.read.return_value = bytearray(
+            b"\x23\x06\x00\x00\x00\x00\x00\x00\x00"
+        )
         status = printer.get_status()
         self.assertIsInstance(status, AsbStatus)
         self.assertFalse(status.offline)
@@ -206,6 +209,29 @@ class TestStarTSPHighLevel(unittest.TestCase):
         printer.ring_buzzer(1, 50, 100)
         written = printer._ep_out.write.call_args[0][0]
         self.assertIn(bytes([1, 50, 100]), written)
+
+    def test_render_image_delegates_to_raster_set(self):
+        from py_star_tsp import StarTSP
+
+        printer = StarTSP()
+        expected = object()
+        printer.set = MagicMock()
+        printer.set.to_image.return_value = expected
+
+        result = printer.render_image()
+
+        self.assertIs(result, expected)
+        printer.set.to_image.assert_called_once_with()
+
+    def test_save_rendered_delegates_to_raster_set(self):
+        from py_star_tsp import StarTSP
+
+        printer = StarTSP()
+        printer.set = MagicMock()
+
+        printer.save_rendered("preview.bmp", format="BMP")
+
+        printer.set.save.assert_called_once_with("preview.bmp", format="BMP")
 
 
 class TestPrintRasterImage(unittest.TestCase):

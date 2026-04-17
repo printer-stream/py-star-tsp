@@ -87,14 +87,17 @@ _FONT_DIRS: Dict[str, List[str]] = {
         "/usr/local/share/fonts",
         str(Path.home() / ".local/share/fonts"),
         str(Path.home() / ".fonts"),
+        str(Path(__file__).parent / "fonts"),
     ],
     "Darwin": [
         "/System/Library/Fonts",
         "/Library/Fonts",
         str(Path.home() / "Library/Fonts"),
+        str(Path(__file__).parent / "fonts"),
     ],
     "Windows": [
         os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"),
+        str(Path(__file__).parent / "fonts"),
     ],
 }
 
@@ -147,7 +150,7 @@ def find_font(name: Optional[str] = None, bold: bool = False, italic: bool = Fal
     *bold* or *italic* are requested the function first looks for
     variant-specific stems (e.g. ``DejaVuSansMono-Bold``).
 
-    Returns: 
+    Returns:
         str or None: Full path to the font file, or ``None`` if nothing was found.
     """
     # If no specific name requested, try the bundled font first
@@ -235,7 +238,7 @@ class TextBlock:
     TODO: Bold/Italic/underline support is non existent
     TODO: Alignment is not supported
     TODO: The text is multilined, and line_spacing is actually interval?
-    
+
     """
     def __init__(self,
         text: str,

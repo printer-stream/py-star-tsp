@@ -8,17 +8,17 @@ Following the **STAR Graphic Mode Command Specifications Rev. 2.31**.
 
 ## Supported Models
 
-| Model | Interface | Tested |
-|---|---|---|
-| TSP100U | USB | - |
-| TSP100PU | USB + Parallel | - |
-| TSP100GT | USB + Ethernet | - |
-| TSP100LAN | Ethernet | - |
-| TSP100IIU | USB | + |
-| TSP100IIIW | USB + Wi-Fi | - |
-| TSP100IIILAN | USB + Ethernet | - |
-| TSP100IIIBI | USB + Bluetooth | - |
-| TSP100IIIU | USB | - |
+| Model        | Interface       | Tested |
+| ---          | ---             | ---    |
+| TSP100U      | USB             | -      |
+| TSP100PU     | USB + Parallel  | -      |
+| TSP100GT     | USB + Ethernet  | -      |
+| TSP100LAN    | Ethernet        | -      |
+| TSP100IIU    | USB             | Y      |
+| TSP100IIIW   | USB + Wi-Fi     | -      |
+| TSP100IIILAN | USB + Ethernet  | -      |
+| TSP100IIIBI  | USB + Bluetooth | -      |
+| TSP100IIIU   | USB             | -      |
 
 
 ## Installation
@@ -92,6 +92,26 @@ Install these Python/system packages to ensure fonts are available:
 
 TBD
 
+## Preview / Export
+
+You can save the queued raster output to an image file before sending it to the printer.
+
+```python
+from py_star_tsp import StarTSP
+
+printer = StarTSP()
+printer.add_text("Preview me")
+printer.add_bar(width=576, height=8)
+
+printer.save_rendered("preview.bmp")
+printer.save_rendered("preview.jpg", quality=95)
+
+image = printer.render_image()
+print(image.size)
+```
+
+Use BMP if you want an exact 1-bit preview of what will be sent to the printer. JPEG is supported too, but it is exported as grayscale because JPEG does not support 1-bit images.
+
 ## ESC/POS Compatibility
 
 TBD
@@ -111,3 +131,4 @@ Commands are implemented from the **STAR Graphic Mode Command Specifications Rev
 * ESC/POS compatibility (very long term)
 * Usage with external rendering (just printing ready to use raster)
 * Turn demo to a reference sheet
+* Generate a preview of what's rendered to be printed

@@ -10,7 +10,8 @@ setup(
     description='Python SDK for Star TSP100 Graphic Mode thermal printers',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    author='printer-stream',
+    author='Pavel Kim',
+    author_email="hello@pavelkim.com",
     url='https://github.com/printer-stream/py-star-tsp',
     classifiers=[
         'Programming Language :: Python :: 3',

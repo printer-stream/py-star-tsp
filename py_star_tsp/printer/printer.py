@@ -104,7 +104,7 @@ class StarTSP:
 
         logger.debug(f"Looking for USB devices with criteria: {kwargs}")
         device = usb.core.find(**kwargs)
-        logger.info(f"USB device search: VID={self.vendor_id}, PID={self.product_id} => {device}")
+        logger.debug(f"USB device search: VID={self.vendor_id}, PID={self.product_id} => {device}")
 
         if device is None:
             pid_info = f"0x{self.product_id:04x}" if self.product_id else "(any)"
@@ -116,7 +116,7 @@ class StarTSP:
 
     def open(self) -> None:
         """Open the USB connection to the printer.
-        
+
         TODO: Why detaching kernel driver?
         TODO: How would it work on Windows and OS X?
         TODO: Finding descriptors and endpoints: is this robust across different OSes and printer models?
@@ -243,7 +243,7 @@ class StarTSP:
         """Pulse the cash-drawer port (external device 1)."""
         self.send(commands.drive_external_device_1_bel())
         logger.debug("Cash drawer pulsed")
-        
+
     def set_raster_ff_mode(self, mode: int) -> None:
         """Set the raster FF mode (form feed behavior).
 
@@ -273,12 +273,12 @@ class StarTSP:
         """
         if length_dots < 200:
             logger.warning(f"Requested page length {length_dots} is less than minimum 200; it may be ignored by the printer")
-        
+
         self.send(commands.raster_set_page_length(length_dots))
         logger.debug(f"Raster page length set to {length_dots} dots")
 
     def set_density(self, n: int) -> None:
-        """Set the print density.        
+        """Set the print density.
 
             n=0: density +3 (darkest)
             n=1: density +2
@@ -329,7 +329,7 @@ class StarTSP:
 
         Returns:
             AsbStatus: Parsed status object reflecting the latest printer state.
-            
+
         TODO: Allegedly, the printer may send unsolicited ASB status packets continuously
         TODO: Flushing used to help, but what about having a thread that reads the usb input
         TODO: How the input buffer works in this case?
@@ -361,6 +361,25 @@ class StarTSP:
         """
         self.send(commands.raster_transfer_auto_lf(n1, n2, line_data))
 
+    def render_all(self):
+        """Render all elements in the RasterSet as raw raster lines."""
+        logger.debug("Rendering all elements in the RasterSet")
+        return self.set.raster_lines
+
+    def render_image(self):
+        """Render the queued raster content into a Pillow image."""
+        logger.debug("Rendering queued raster content to a Pillow image")
+        return self.set.to_image()
+
+    def save_rendered(self, filename: str, format: Optional[str] = None, **save_kwargs) -> None:
+        """Save the queued raster content to an image file.
+
+        BMP preserves the original 1-bit output exactly. JPEG export is also
+        supported by converting the preview to grayscale before saving.
+        """
+        logger.info(f"Saving rendered raster output to {filename}")
+        self.set.save(filename, format=format, **save_kwargs)
+
     def print(self) -> None:
         """Send a full raster print sequence.
 
@@ -371,7 +390,7 @@ class StarTSP:
             4. Transfer each raster line using ``raster_transfer_auto_lf``.
             5. Execute a form-feed to trigger printing.
             6. Quit raster mode.
-        
+
         Notes:
             * We're assuming auto LF is the only correct way to go.
 
@@ -382,7 +401,7 @@ class StarTSP:
 
         self.initialize_raster()
         self.enter_raster_mode()
-        
+
         self.set_density(self.print_density)
         self.set_raster_print_quality(self.raster_print_quality)
         self.set_raster_ff_mode(self.raster_ff_mode)
@@ -414,7 +433,7 @@ class StarTSP:
     def add_image(self, filename: str, invert=False) -> None:
         """
         Add an image to the print queue and print it.
-        
+
         TODO: Shrinking is inevitable, but should we have other options?
         """
         logger.info("Preparing to add an image")
@@ -422,7 +441,7 @@ class StarTSP:
         img = RasterImage.from_file(filename)
         logger.info(f"Fetched image: {img}")
 
-        img.shrink_to_fit(self.raster_width)
+        img.shrink_to_fit(max_width=self.raster_width)
         logger.info(f"Shrunk image: {img}")
 
         if invert:
@@ -478,18 +497,14 @@ class StarTSP:
 
     def add_bar(self, width: int, height: int, margin_left: int = 0, margin_right: int = 0) -> None:
         """Add a solid black bar of the specified dimensions to the print queue.
-        
-        TODO: That margin_right workaround must be cleaned up. 
+
+        TODO: That margin_right workaround must be cleaned up.
         """
         logger.info(f"Adding a bar: width={width}, height={height}, margin_left={margin_left}, margin_right={margin_right}")
 
         if width+margin_left > self.raster_width:
             logger.warning(f"Requested bar width {width} with margin {margin_left} exceeds raster width {self.raster_width}; it will be truncated")
             width = self.raster_width - margin_left
-
-        elif width+margin_left < self.raster_width:
-            logger.info(f"Requested bar width {width} with margin {margin_left} is less than raster width {self.raster_width}; it will be right-aligned with margin")
-            margin_right = self.raster_width - width - margin_left
 
         bar = SolidBar(width=width, height=height, margin_left=margin_left, margin_right=margin_right)
         self.set.add(bar)

@@ -10,12 +10,12 @@ logger = logging.getLogger("py_star_tsp")
 class StarTSP100(StarTSP):
     """
         Printer class for the Star TSP100 series.
-        
+
         1. DPI: 203
         2. Paper width: 80mm
         3. USB interface
         4. Supported commands: StarPRNT
-        
+
         USB_VID = 0x0519
         USB_PID = 0x0001
 
@@ -31,7 +31,7 @@ class StarTSP100(StarTSP):
 
     """
 
-    def __init__(self, 
+    def __init__(self,
                 product_id: Optional[int] = None,
                 timeout: int = 5000,
                 *args, **kwargs) -> None:
@@ -40,11 +40,16 @@ class StarTSP100(StarTSP):
         self.product_id = product_id
         self.timeout = timeout
 
+        super().__init__(vendor_id=self.vendor_id, product_id=self.product_id, timeout=self.timeout, *args, **kwargs)
+
         self.paper_width_mm = 80
+        self.printable_width_mm = 72
+
         self.raster_dpi = 203
         self.raster_width = 576  # 576 pixels (80mm at 203 DPI)
 
-        super().__init__(vendor_id=self.vendor_id, product_id=self.product_id, timeout=self.timeout, *args, **kwargs)
+        self.printable_px_per_mm = 8
+
 
     def __enter__(self) -> "StarTSP100":
         logger.info("Opening printer connection")

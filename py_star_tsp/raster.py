@@ -25,12 +25,16 @@ class RasterSet:
     That's what Printer holds internally as it builds up the print "queue".
     The blocks from the RasterSet are then supposed to be converted to raster lines
     and sent to the printer.
-    
+
     TODO: Variable block width breaks the printer's line-by-line processing.
-          At this point we just make sure all widths are "correct", 
+          At this point we just make sure all widths are "correct",
           meaning they don't break the printing. The way of passing down the lines
           must be redesigned.
 
+    TODO: At this point the only block type is RasterImage,
+          but there could be other types in the future.
+
+    TODO: Make sure the order of blocks is preserved.
     """
 
     def __init__(self, blocks=None) -> None:
@@ -58,8 +62,46 @@ class RasterSet:
     def raster_lines(self) -> List[bytes]:
         lines: List[bytes] = []
         for block in self.blocks:
-            lines.extend(block.to_raster_lines())
+            lines.extend(block.to_raster_lines(padding_width=self.total_width))
         return lines
+
+    def to_image(self) -> "Image.Image":
+        """Render the full raster queue into a Pillow image."""
+        if self.total_width <= 0 or self.total_height <= 0:
+            raise ValueError("Cannot render an empty RasterSet")
+
+        # Printer raster bytes use 1 = black, 0 = white.
+        # Pillow mode '1' expects the opposite bit polarity.
+        preview_bytes = bytearray()
+        for line in self.raster_lines:
+            preview_bytes.extend((~byte) & 0xFF for byte in line)
+
+        return Image.frombytes(
+            "1",
+            (self.total_width, self.total_height),
+            bytes(preview_bytes),
+        )
+
+    def save(self, filename: str, format: Optional[str] = None, **save_kwargs) -> None:
+        """Save the rendered raster queue to an image file.
+
+        Args:
+            filename: Output file path.
+            format: Optional Pillow format override. If omitted, Pillow infers
+                the format from *filename*.
+            **save_kwargs: Extra keyword arguments passed to ``Image.save``.
+
+        Notes:
+            JPEG does not support 1-bit mode, so the image is converted to
+            8-bit grayscale automatically for that format.
+        """
+        image = self.to_image()
+        image_format = (format or Path(filename).suffix.lstrip(".")).upper()
+
+        if image_format.upper() in {"JPG", "JPEG"}:
+            image = image.convert("L")
+
+        image.save(filename, format=format, **save_kwargs)
 
     def add(self, block) -> None:
         logger.info(f"Adding block to RasterSet: {block}")
@@ -72,7 +114,7 @@ class RasterImage:
     Args:
         image (Image.Image): A PIL ``Image`` object.  Any mode is accepted; the image is
                converted to ``'1'`` (1-bit black-and-white) internally.
-    
+
     """
 
     def __init__(self, image: "Image.Image") -> None:
@@ -80,10 +122,6 @@ class RasterImage:
 
     def __repr__(self) -> str:
         return f"RasterImage(width={self.width}, height={self.height})"
-
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
 
     @property
     def width(self) -> int:
@@ -110,14 +148,15 @@ class RasterImage:
 
     def shrink_to_fit(self, max_width: int) -> None:
         """
-            Shrink the image to fit within the given maximum width, 
+            Shrink the image to fit within the given maximum width,
             preserving aspect ratio.
         """
         if self.width > max_width:
-            new_height = int(self.height * (max_width / self.width))
+            logger.info(f"Shrinking image from {self.width}px to fit max width {max_width}px")
+            new_height = int(self.height * (max_width / self.width) + 0.5)
             self._image.thumbnail((max_width, new_height), Image.Resampling.LANCZOS)
 
-    def to_raster_lines(self) -> List[bytes]:
+    def to_raster_lines(self, padding_width: Optional[int] = None) -> List[bytes]:
         """Return a list of packed raster lines, one ``bytes`` per row.
 
         Each row is packed MSB-first: the leftmost pixel occupies bit 7
@@ -125,14 +164,23 @@ class RasterImage:
         byte boundary.
         """
         img = self._image
-        w = img.width
-        h = img.height
-        bytes_per_row = (w + 7) // 8
+        img_width = img.width
+        img_height = img.height
+        logger.info(f"Converting RasterImage {img} to raster lines: {img_width}×{img_height} pixels")
+
+        if padding_width is not None:
+            bytes_per_row = (padding_width + 7) // 8
+            logger.info(f"Using padding width {padding_width} pixels -> {bytes_per_row} bytes per row")
+        else:
+            bytes_per_row = (img_width + 7) // 8
+            logger.info(f"No padding width specified, using image width {img_width} pixels -> {bytes_per_row} bytes per row")
+
         lines: List[bytes] = []
         pixels = img.load()
-        for y in range(h):
+
+        for y in range(img_height):
             row = bytearray(bytes_per_row)
-            for x in range(w):
+            for x in range(img_width):
                 pixel = pixels[x, y]
                 # PIL mode '1': 0 = black (printed), 255 = white (not printed)
                 if pixel == 0:
@@ -154,12 +202,12 @@ class SolidBar(RasterImage):
             height (int): Height of the black bar in pixels.
             margin_left (int, optional): Left margin in pixels. Defaults to 0.
             margin_right (int, optional): Right margin in pixels. Defaults to 0.
-        
+
         Notes:
-            margin_right is a workaround for the fact that the printer 
-            may ignore trailing bits of the last byte in a row if 
-            the total width is not a multiple of 8. By adding margin pixels 
-            to the right, we can ensure that the black bar extends into 
+            margin_right is a workaround for the fact that the printer
+            may ignore trailing bits of the last byte in a row if
+            the total width is not a multiple of 8. By adding margin pixels
+            to the right, we can ensure that the black bar extends into
             those bits and is printed correctly.
         """
         img_width = margin_left + width + margin_right

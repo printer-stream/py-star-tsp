@@ -1,6 +1,8 @@
-"""Unit tests for py_star_tsp.raster.RasterImage."""
+"""Unit tests for py_star_tsp.raster primitives."""
 
 import unittest
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 try:
     from PIL import Image
@@ -9,7 +11,7 @@ except ImportError:
     HAS_PIL = False
 
 if HAS_PIL:
-    from py_star_tsp.raster import RasterImage
+    from py_star_tsp.raster import RasterImage, RasterSet
 
 
 @unittest.skipUnless(HAS_PIL, "Pillow is not installed")
@@ -109,6 +111,55 @@ class TestRasterLines(unittest.TestCase):
         ri = RasterImage(img)
         lines = ri.to_raster_lines()
         self.assertEqual(len(lines[0]), 48)
+
+
+@unittest.skipUnless(HAS_PIL, "Pillow is not installed")
+class TestRasterSetExport(unittest.TestCase):
+    def test_to_image_pads_narrower_rows_to_full_width(self):
+        wide = RasterImage(Image.new("L", (16, 1), color=255))
+        narrow_source = Image.new("L", (8, 1), color=255)
+        narrow_source.load()[0, 0] = 0
+        narrow = RasterImage(narrow_source)
+
+        raster_set = RasterSet([wide, narrow])
+
+        image = raster_set.to_image()
+
+        self.assertEqual(image.size, (16, 2))
+        self.assertEqual(image.getpixel((0, 1)), 0)
+        self.assertEqual(image.getpixel((15, 1)), 255)
+
+    def test_save_bmp_writes_1bit_preview(self):
+        img = Image.new("L", (8, 2), color=255)
+        img.load()[0, 0] = 0
+        raster_set = RasterSet([RasterImage(img)])
+
+        with TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "preview.bmp"
+            raster_set.save(str(output_path))
+
+            with Image.open(output_path) as saved:
+                self.assertEqual(saved.format, "BMP")
+                self.assertEqual(saved.size, (8, 2))
+                self.assertEqual(saved.getpixel((0, 0)), 0)
+
+    def test_save_jpeg_converts_to_grayscale(self):
+        img = Image.new("L", (8, 2), color=255)
+        img.load()[0, 0] = 0
+        raster_set = RasterSet([RasterImage(img)])
+
+        with TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "preview.jpg"
+            raster_set.save(str(output_path), quality=95)
+
+            with Image.open(output_path) as saved:
+                self.assertEqual(saved.format, "JPEG")
+                self.assertEqual(saved.size, (8, 2))
+                self.assertEqual(saved.mode, "L")
+
+    def test_to_image_rejects_empty_set(self):
+        with self.assertRaises(ValueError):
+            RasterSet().to_image()
 
 
 if __name__ == "__main__":

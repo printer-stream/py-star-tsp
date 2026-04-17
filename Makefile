@@ -6,7 +6,7 @@ PROG_EGG := py_star_tsp-$(VERSION)-py3.10.egg
 
 .PHONY: all version build clean install
 
-build: $(BUILD_DIR) $(BUILD_DIR)/$(PROG) $(BUILD_DIR)/$(PROG_EGG)
+build: $(BUILD_DIR) $(BUILD_DIR)/$(PROG)
 	@echo "Last steps"
 
 $(BUILD_DIR)/$(PROG):

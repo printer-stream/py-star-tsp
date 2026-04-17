@@ -92,6 +92,10 @@ jobs:
       app_name: ${{ env.APP_NAME }}
       planned_version: ${{ needs.validate_new_version.outputs.planned_version }}
 
+    permissions:
+      # IMPORTANT: this permission is mandatory for Trusted Publishing
+      id-token: write
+
     needs:
       - validate_new_version
 
@@ -198,23 +202,8 @@ jobs:
 
           done < "${{ steps.run_build.outputs.artifacts_list_filename }}"
 
-
-      - name: Upload to pypi
-        if: >
-          needs.validate_new_version.outputs.can_create == 'true' &&
-          needs.validate_new_version.outputs.branch_name == 'master' &&
-          github.event_name == 'push'
-        env:
-          TWINE_USERNAME: ${{ secrets.PROD_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PROD_PYPI_PASSWORD }}
-        run: |
-          while read artifact_filename; do
-            
-            if [[ "${artifact_filename}" =~ .*\.whl ]]; then
-              twine upload --disable-progress-bar "${artifact_filename}"
-            fi
-
-          done < "${{ steps.run_build.outputs.artifacts_list_filename }}"
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
 
   after_build:

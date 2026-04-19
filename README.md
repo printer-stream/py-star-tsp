@@ -33,7 +33,9 @@ Following the **STAR Graphic Mode Command Specifications Rev. 2.31**.
 pip install py-star-tsp
 ```
 
-## Usage example
+## Usage examples
+
+### Regular usage
 
 ```python
 import datetime
@@ -80,6 +82,39 @@ Pembroke Players.
     printer.add_bar(width=0, height=15)
     printer.add_text(paragraph, font_size=20)
     printer.add_image(py_star_tsp.KITTENS_SPINNING, invert=True)
+
+    # Exporting a preview
+    printer.save_rendered("/tmp/rendered_example.bmp")
+
+    # Printing out
+    printer.print()
+```
+
+### Print separately prepared raster
+
+```python
+import datetime
+import PIL
+
+import py_star_tsp
+
+with py_star_tsp.StarTSP100() as printer:
+    # Changing print quality to high
+    printer.raster_print_quality = 2
+
+    # Device discovery
+    printer.find_device()
+
+    # Create your own image
+    your_image = Image.new("L", (100, 200), color=255)
+    draw = ImageDraw.Draw(your_image)
+    draw.multiline_text((10, 10), "HELLO THERE.", fill=0)
+
+    # Initialise RasterImage object
+    raster_image = RasterImage(image=your_image)
+
+    # Add RasterImage object to the printing "queue"
+    printer.add_raster(raster=raster_image)
 
     # Exporting a preview
     printer.save_rendered("/tmp/rendered_example.bmp")

@@ -429,6 +429,10 @@ class StarTSP:
         self.raster_ff()
         self.quit_raster_mode()
 
+    def add_raster(self, raster: RasterImage) -> None:
+        """Add a RasterImage to the print queue."""
+        logger.info(f"Adding raster image to print queue: {raster}")
+        self.set.add(raster)
 
     def add_image(self, filename: str, invert=False) -> None:
         """

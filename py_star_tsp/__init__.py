@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .printer.printer import StarTSP
 from .printer.tsp100 import StarTSP100
+from .version import __version__ as version
 from .raster import RasterImage
 from .status import AsbStatus
 from .text import discover_fonts, find_font, TextBlock
@@ -24,6 +25,7 @@ __all__ = [
     "PrinterNotFoundError",
     "PrinterCommunicationError",
     "PrinterCommandError",
+    "version",
 ]
 
 KITTENS_SPINNING = str(Path(__file__).parent / "img" / "three_kittens_spinning.png")

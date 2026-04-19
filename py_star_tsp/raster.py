@@ -118,8 +118,8 @@ class RasterImage:
 
     """
 
-    def __init__(self, image: "Image.Image", threshold: int = 200) -> None:
-        fn = lambda x: 255 if x > threshold else 0
+    def __init__(self, image: "Image.Image", bw_threshold: int = 200) -> None:
+        fn = lambda x: 255 if x > bw_threshold else 0
         self._image = image.convert("L").point(fn, mode="1")
 
     def __repr__(self) -> str:

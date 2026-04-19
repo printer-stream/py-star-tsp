@@ -1,5 +1,7 @@
 # py-star-tsp
 
+![Printing with py-star-tsp](doc/long_demo_print_loop.gif)
+
 Python SDK for **Star** thermal printers operating in **Graphic Mode** over USB.
 
 Following the **STAR Graphic Mode Command Specifications Rev. 2.31**.

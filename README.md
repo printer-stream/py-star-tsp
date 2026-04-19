@@ -1,12 +1,16 @@
 # py-star-tsp
 
+[![PyPI version](https://img.shields.io/pypi/v/py-star-tsp)](https://pypi.org/project/py-star-tsp/)
+[![Python versions](https://img.shields.io/pypi/pyversions/py-star-tsp)](https://pypi.org/project/py-star-tsp/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Build](https://github.com/printer-stream/py-star-tsp/actions/workflows/release.yml/badge.svg)](https://github.com/printer-stream/py-star-tsp/actions/workflows/release.yml)
+[![PyPI downloads](https://img.shields.io/pypi/dm/py-star-tsp)](https://pypi.org/project/py-star-tsp/)
+
 ![Printing with py-star-tsp](doc/long_demo_print_loop.gif)
 
 Python SDK for **Star** thermal printers operating in **Graphic Mode** over USB.
 
 Following the **STAR Graphic Mode Command Specifications Rev. 2.31**.
-
-> AI Generated, poorly reviewed, and hardly supervised.
 
 ## Supported Models
 
@@ -173,10 +177,6 @@ Use BMP if you want an exact 1-bit preview of what will be sent to the printer. 
 
 TBD
 
-## Specification Reference
-
-Commands are implemented from the **STAR Graphic Mode Command Specifications Rev. 2.31** (`star_graphic_cm_en.pdf`).
-
 ## Licensing
 
 * Kitten in the demos by Deni Sudibyo
@@ -188,4 +188,4 @@ Commands are implemented from the **STAR Graphic Mode Command Specifications Rev
 * ESC/POS compatibility (very long term)
 * Usage with external rendering (just printing ready to use raster)
 * Turn demo to a reference sheet
-* Generate a preview of what's rendered to be printed
+* DONE: Generate a preview of what's rendered to be printed

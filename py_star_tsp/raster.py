@@ -54,14 +54,15 @@ class RasterSet:
     def total_height(self) -> int:
         total_height = 0
         for block in self.blocks:
-            logger.info(f"Block: {block}")
             total_height += block.height
+            logger.debug(f"Gathered block height: +{block.height}px subtotal={total_height}px")
         return total_height
 
     @property
     def raster_lines(self) -> List[bytes]:
         lines: List[bytes] = []
         for block in self.blocks:
+            logger.debug(f"Converting block to raster lines: {block}")
             lines.extend(block.to_raster_lines(padding_width=self.total_width))
         return lines
 
@@ -104,7 +105,7 @@ class RasterSet:
         image.save(filename, format=format, **save_kwargs)
 
     def add(self, block) -> None:
-        logger.info(f"Adding block to RasterSet: {block}")
+        logger.debug(f"Adding block to RasterSet: {block}")
         self.blocks.append(block)
 
 
@@ -117,11 +118,12 @@ class RasterImage:
 
     """
 
-    def __init__(self, image: "Image.Image") -> None:
-        self._image = image.convert("1")
+    def __init__(self, image: "Image.Image", threshold: int = 200) -> None:
+        fn = lambda x: 255 if x > threshold else 0
+        self._image = image.convert("L").point(fn, mode="1")
 
     def __repr__(self) -> str:
-        return f"RasterImage(width={self.width}, height={self.height})"
+        return f"RasterImage({self.width}x{self.height})"
 
     @property
     def width(self) -> int:
@@ -166,28 +168,38 @@ class RasterImage:
         img = self._image
         img_width = img.width
         img_height = img.height
-        logger.info(f"Converting RasterImage {img} to raster lines: {img_width}×{img_height} pixels")
+        logger.debug(f"Converting RasterImage {img} to raster lines: {img_width}×{img_height} pixels")
 
         if padding_width is not None:
             bytes_per_row = (padding_width + 7) // 8
-            logger.info(f"Using padding width {padding_width} pixels -> {bytes_per_row} bytes per row")
+            logger.debug(f"Using padding width {padding_width} pixels -> {bytes_per_row} bytes per row")
         else:
             bytes_per_row = (img_width + 7) // 8
-            logger.info(f"No padding width specified, using image width {img_width} pixels -> {bytes_per_row} bytes per row")
+            logger.debug(f"No padding width specified, using image width {img_width} pixels -> {bytes_per_row} bytes per row")
 
         lines: List[bytes] = []
-        pixels = img.load()
 
+        # Invert so that black=1 bit (printer convention) instead of
+        # PIL's black=0 bit, then pack with tobytes().
+        logger.debug("Inverting image for printer convention (black=1 bit)")
+        inverted = Image.eval(img, lambda p: 255 - p)
+        raw = inverted.tobytes()
+
+        img_bytes_per_row = (img_width + 7) // 8
+        logger.debug(f"Image bytes per row: {img_bytes_per_row}, total bytes: {len(raw)}")
+
+        pad = bytes_per_row - img_bytes_per_row
+        logger.debug(f"Calculated padding: {pad} bytes per row")
+
+        logger.debug("Packing raster lines with padding")
         for y in range(img_height):
-            row = bytearray(bytes_per_row)
-            for x in range(img_width):
-                pixel = pixels[x, y]
-                # PIL mode '1': 0 = black (printed), 255 = white (not printed)
-                if pixel == 0:
-                    byte_index = x // 8
-                    bit_index = 7 - (x % 8)  # MSB first
-                    row[byte_index] |= 1 << bit_index
-            lines.append(bytes(row))
+            offset = y * img_bytes_per_row
+            row = raw[offset:offset + img_bytes_per_row]
+            if pad > 0:
+                row += b'\x00' * pad
+            lines.append(row)
+
+        logger.debug(f"Generated {len(lines)} raster lines, length={bytes_per_row} padding={pad}")
         return lines
 
 
@@ -215,10 +227,11 @@ class SolidBar(RasterImage):
 
         img = Image.new("1", (img_width, img_height), color=255)  # 255 = white (not printed)
         pixels = img.load()
+        logger.debug(f"Creating SolidBar: width={width}px, height={height}px, margin_left={margin_left}px, margin_right={margin_right}px, total_width={img_width}px")
 
         for y in range(img_height):
             for x in range(margin_left, margin_left + width):
                 pixels[x, y] = 0  # 0 = black (printed)
 
-        super().__init__(img)
+        super().__init__(image=img)
 

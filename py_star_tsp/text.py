@@ -198,7 +198,7 @@ def find_font(name: Optional[str] = None, bold: bool = False, italic: bool = Fal
 
     # Last resort: return the first available font
     first = next(iter(available.values()))
-    logger.info(f"find_font: no exact match; using first available: {first}")
+    logger.warning(f"find_font: no exact match '{name}'; using first available: {first}")
 
     return first
 
@@ -284,7 +284,7 @@ class TextBlock:
         """
         font_path = find_font(self.font_name, bold=self.bold, italic=self.italic)
         font = _load_font(font_path, self.font_size)
-        logger.info(f"TextBlock.render: using font {font_path!r}")
+        logger.debug(f"TextBlock.render: using font {font_path!r}")
 
         text_padding = 0
 
@@ -300,7 +300,7 @@ class TextBlock:
         )
         text_width = bbox_right - bbox_left
         text_height = bbox_bottom - bbox_top
-        logger.info(f"TextBlock.render: multiline bbox {(bbox_left, bbox_top, bbox_right, bbox_bottom)} => {text_width}×{text_height}")
+        logger.debug(f"TextBlock.render: multiline bbox {(bbox_left, bbox_top, bbox_right, bbox_bottom)} => {text_width}×{text_height}")
 
         if text_width > self.width - 2 * text_padding:
             logger.warning(f"TextBlock.render: text width {text_width} exceeds image width {self.width}")

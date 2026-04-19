@@ -1,5 +1,7 @@
 """py_star_tsp — Python SDK for Star TSP100 Graphic Mode thermal printers."""
 
+from pathlib import Path
+
 from .printer.printer import StarTSP
 from .printer.tsp100 import StarTSP100
 from .raster import RasterImage
@@ -23,3 +25,5 @@ __all__ = [
     "PrinterCommunicationError",
     "PrinterCommandError",
 ]
+
+KITTENS_SPINNING = str(Path(__file__).parent / "img" / "three_kittens_spinning.png")

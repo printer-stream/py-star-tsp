@@ -37,7 +37,7 @@ pip install py-star-tsp
 
 ### Reference page
 
-See: [examples/demo_reference.py](examples/demo_reference.py)
+README: [examples/README.md](https://github.com/printer-stream/py-star-tsp/tree/master/examples)
 
 ### Regular usage
 

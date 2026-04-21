@@ -35,6 +35,10 @@ pip install py-star-tsp
 
 ## Usage examples
 
+### Reference page
+
+See: (demo_reference.py)[py-star-tsp/examples/demo_reference.py]
+
 ### Regular usage
 
 ```python
@@ -184,10 +188,6 @@ Install these Python/system packages to ensure fonts are available:
 - **fonts-liberation** (Debian/Ubuntu) / **liberation-mono-fonts** (Fedora/Rocky) — Liberation family
 
 
-## Midtones / Grayscale (Dithering)
-
-TBD
-
 ## Preview / Export
 
 You can save the queued raster output to an image file before sending it to the printer.
@@ -210,7 +210,9 @@ Use BMP if you want an exact 1-bit preview of what will be sent to the printer. 
 
 ## ESC/POS Compatibility
 
-TBD
+At this point emulation of ESC/POS is not implemented.
+
+See issue #13: https://github.com/printer-stream/py-star-tsp/issues/13
 
 ## Licensing
 
@@ -221,6 +223,6 @@ TBD
 * 2d code implementation (barcode, qr, etc)
 * Python version compatibility
 * ESC/POS compatibility (very long term)
-* Usage with external rendering (just printing ready to use raster)
-* Turn demo to a reference sheet
+* DONE: Usage with external rendering (just printing ready to use raster)
+* DONE: Turn demo to a reference sheet
 * DONE: Generate a preview of what's rendered to be printed

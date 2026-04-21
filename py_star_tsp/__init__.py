@@ -29,3 +29,8 @@ __all__ = [
 ]
 
 KITTENS_SPINNING = str(Path(__file__).parent / "img" / "three_kittens_spinning.png")
+
+FONTS_DIR = str(Path(__file__).parent / "fonts")
+FONT_OCR_A_STD = str(Path(FONTS_DIR) / "ocr_a_std.ttf")
+FONT_OCR_B = str(Path(FONTS_DIR) / "ocr_b.ttf")
+FONT_ORATOR = str(Path(FONTS_DIR) / "orator_15cpi.ttf")

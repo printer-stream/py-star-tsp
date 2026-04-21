@@ -81,6 +81,7 @@ class StarTSP:
                                        # n=5: density -2
                                        # n=6: density -3 (lightest)
         self.set = RasterSet()
+        self.set_flush_on_print = True
 
     @property
     def raster_ff_mode(self) -> int:
@@ -395,7 +396,8 @@ class StarTSP:
             * We're assuming auto LF is the only correct way to go.
 
         TODO: Try-except with exiting raster mode etc.
-        TODO: Defining n1 and n2 per element in the RasterSet. Currently we ensure all blocks are exactly correct width (or do we?).
+        TODO: Defining n1 and n2 per element in the RasterSet. 
+              Currently we ensure all blocks are exactly correct width (or do we?).
         """
         logger.info("Preparing to print raster image")
 
@@ -425,9 +427,17 @@ class StarTSP:
 
         for line in self.set.raster_lines:
             self.print_raster_line(n1, n2, line)
+ 
+        if self.set_flush_on_print:
+            self.set_flush()
 
         self.raster_ff()
         self.quit_raster_mode()
+
+    def set_flush(self) -> None:
+        """Clear the current RasterSet and reset it to an empty state."""
+        logger.debug("Flushing RasterSet")
+        self.set.flush()
 
     def add_raster(self, raster: RasterImage) -> None:
         """Add a RasterImage to the print queue."""
@@ -453,7 +463,6 @@ class StarTSP:
             logger.info(f"Inverted image: {img}")
 
         self.set.add(img)
-
 
     def add_text(
         self,

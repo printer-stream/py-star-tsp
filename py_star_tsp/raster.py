@@ -108,6 +108,9 @@ class RasterSet:
         logger.debug(f"Adding block to RasterSet: {block}")
         self.blocks.append(block)
 
+    def flush(self) -> None:
+        logger.debug("Flushing RasterSet blocks")
+        self.blocks.clear()
 
 class RasterImage:
     """Wrap a PIL Image and expose it as packed 1-bit raster lines.

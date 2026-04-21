@@ -37,7 +37,7 @@ pip install py-star-tsp
 
 ### Reference page
 
-See: (demo_reference.py)[py-star-tsp/examples/demo_reference.py]
+See: [demo_reference.py](py-star-tsp/examples/demo_reference.py)
 
 ### Regular usage
 

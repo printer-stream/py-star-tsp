@@ -19,4 +19,7 @@ setup(
         'Operating System :: OS Independent',
         'Topic :: Printing',
     ],
+    package_data = {
+        'py_star_tsp': ['fonts/*.ttf', 'fonts/*.otf', 'img/*.png', 'img/*.jpg', 'img/*.jpeg', 'img/*.bmp'],
+    }
 )

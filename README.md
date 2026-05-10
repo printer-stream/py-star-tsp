@@ -210,9 +210,13 @@ Use BMP if you want an exact 1-bit preview of what will be sent to the printer. 
 
 ## ESC/POS Compatibility
 
+More examples: [README.md](/examples/README.md)
+
+ESC/POS Command Reference: [download4.epson.biz](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/)
+
 The general approach in `py-star-tsp` to emulate ESC/POS for Star TSP100 printer is introduce a virtual ESC/POS compatible network server as a middleware. The conversion is done upon receiving the commands over TCP socket.
 
-There is an emulation layer implemented as a separate module `py_star_tsp.escpos`.
+There is an emulation layer implemented as a separate module `py_star_tsp.escpos`. At this point very limited number of commands supported and tested.
 
 You can use `python-escpos` to operate a Star TSP100 printer as if it had ESC/POS support.
 
@@ -253,12 +257,6 @@ p.text("Printing on Star TSP100\nwith py-star-tsp and python-escpos\n")
 p.set(align="center", bold=False)
 p.close()
 ```
-
-More examples: [README.md](/examples/README.md)
-
-ESC/POS Command Reference: https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/
-
-See issue #13: https://github.com/printer-stream/py-star-tsp/issues/13
 
 ## Licensing
 

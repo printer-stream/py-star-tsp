@@ -35,6 +35,5 @@ python examples/print_server.py    # terminal 1
 python examples/python_escpos_client.py  # terminal 2
 ```
 
-| [![escpos_emulation_epson_tm_t88.jpg](https://gh.printer.stream/static/sm/escpos_emulation_epson_tm_t88.jpg)](https://gh.printer.stream/static/escpos_emulation_epson_tm_t88.jpg) | [![escpos_emulation_star_tsp100.jpg](https
-://gh.printer.stream/static/sm/escpos_emulation_star_tsp100.jpg)](https://gh.printer.stream/static/escpos_emulation_star_tsp100.jpg) |
+| [![escpos_emulation_epson_tm_t88.jpg](https://gh.printer.stream/static/sm/escpos_emulation_epson_tm_t88.jpg)](https://gh.printer.stream/static/escpos_emulation_epson_tm_t88.jpg) | [![escpos_emulation_star_tsp100.jpg](https://gh.printer.stream/static/sm/escpos_emulation_star_tsp100.jpg)](https://gh.printer.stream/static/escpos_emulation_star_tsp100.jpg) |
 | :--: | :--: |

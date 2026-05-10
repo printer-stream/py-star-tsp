@@ -210,7 +210,53 @@ Use BMP if you want an exact 1-bit preview of what will be sent to the printer. 
 
 ## ESC/POS Compatibility
 
-At this point emulation of ESC/POS is not implemented.
+The general approach in `py-star-tsp` to emulate ESC/POS for Star TSP100 printer is introduce a virtual ESC/POS compatible network server as a middleware. The conversion is done upon receiving the commands over TCP socket.
+
+There is an emulation layer implemented as a separate module `py_star_tsp.escpos`.
+
+You can use `python-escpos` to operate a Star TSP100 printer as if it had ESC/POS support.
+
+Quick example of how to start a virtual print server:
+
+```python
+import asyncio
+
+from py_star_tsp import StarTSP100
+from py_star_tsp.escpos import PRESET_EPSON_TM_T88
+from py_star_tsp.server import EscposServer
+
+def on_print(raster_set):
+    with StarTSP100() as printer:
+        for block in raster_set.blocks:
+            printer.add_raster(block)
+        printer.print()
+
+async def main():
+    server = EscposServer(preset=preset, on_print=on_print)
+    await server.start()
+
+asyncio.run(main())
+```
+
+Quick example of how to print on Star TSP100 with `python-escpos`:
+
+```python
+from escpos.printer import Network
+
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 9100
+
+p = Network(SERVER_HOST, port=SERVER_PORT)
+p.set_with_default()
+p.set(align="center", bold=False)
+p.text("Printing on Star TSP100\nwith py-star-tsp and python-escpos\n")
+p.set(align="center", bold=False)
+p.close()
+```
+
+More examples: [README.md](/examples/README.md)
+
+ESC/POS Command Reference: https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/
 
 See issue #13: https://github.com/printer-stream/py-star-tsp/issues/13
 
@@ -222,7 +268,7 @@ See issue #13: https://github.com/printer-stream/py-star-tsp/issues/13
 
 * 2d code implementation (barcode, qr, etc)
 * Python version compatibility
-* ESC/POS compatibility (very long term)
+* DONEISH: ESC/POS compatibility (very long term)
 * DONE: Usage with external rendering (just printing ready to use raster)
 * DONE: Turn demo to a reference sheet
 * DONE: Generate a preview of what's rendered to be printed

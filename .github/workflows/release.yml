@@ -8,6 +8,12 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'LICENSE'
+      - 'README.md'
+      - '.github/**'
+      - 'doc/**'
+      - '.gitignore'
 
 jobs:
 
